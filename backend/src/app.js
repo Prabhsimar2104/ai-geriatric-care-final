@@ -11,6 +11,7 @@ import reminderRoutes from './routes/reminderRoutes.js';
 import notifyRoutes from './routes/notifyRoutes.js';
 import chatRoutes from './routes/chatRoutes.js';
 import emergencyContactRoutes from './routes/emergencyContactRoutes.js';
+import fallAlertRoutes from './routes/fallAlertRoutes.js';
 
 // New imports
 import { getHealthStatus } from './utils/healthCheck.js';
@@ -23,15 +24,17 @@ const PORT = process.env.PORT || 4000;
 
 /* ---------------------- 🔥 SENTRY INITIALIZATION 🔥 ---------------------- */
 
-Sentry.init({
-  dsn: process.env.SENTRY_DSN,
-  environment: process.env.NODE_ENV || 'development',
-  tracesSampleRate: 1.0,
-});
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV || 'development',
+    tracesSampleRate: 1.0,
+  });
 
-// Must be before routes
-app.use(Sentry.Handlers.requestHandler());
-app.use(Sentry.Handlers.tracingHandler());
+  // Must be before routes
+  app.use(Sentry.Handlers.requestHandler());
+  app.use(Sentry.Handlers.tracingHandler());
+}
 
 /* ---------------------- 🌐 EXPRESS MIDDLEWARE ---------------------------- */
 
@@ -51,15 +54,29 @@ app.use(express.urlencoded({ extended: true }));
 
 /* ---------------------- 🚀 PERFORMANCE MONITORING ------------------------ */
 
-app.use(performanceMonitoring);
+if (performanceMonitoring) {
+  app.use(performanceMonitoring);
+}
 
 /* ---------------------- 🩺 HEALTH CHECK ROUTE ---------------------------- */
 
 app.get('/api/health', async (req, res) => {
   try {
-    const health = await getHealthStatus();
-    const statusCode = health.status === 'healthy' ? 200 : 503;
-    res.status(statusCode).json(health);
+    const health = getHealthStatus ? await getHealthStatus() : null;
+    
+    if (health) {
+      const statusCode = health.status === 'healthy' ? 200 : 503;
+      res.status(statusCode).json(health);
+    } else {
+      // Fallback health check
+      const [result] = await db.query('SELECT 1 as status');
+      res.json({ 
+        status: 'OK', 
+        message: 'Server running',
+        database: result[0].status === 1 ? 'Connected' : 'Disconnected',
+        timestamp: new Date().toISOString()
+      });
+    }
   } catch (error) {
     res.status(503).json({
       status: 'unhealthy',
@@ -76,6 +93,7 @@ app.use('/api/reminders', reminderRoutes);
 app.use('/api/notify', notifyRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/emergency-contacts', emergencyContactRoutes);
+app.use('/api/notify', fallAlertRoutes); // Fall alert routes under /api/notify
 
 /* ---------------------- 🏠 HOME ROUTE ----------------------------------- */
 
@@ -83,7 +101,12 @@ app.get('/', (req, res) => {
   res.json({
     message: 'AI Geriatric Care API',
     version: '1.0.0',
-    status: 'Running'
+    status: 'Running',
+    endpoints: {
+      health: '/api/health',
+      fallAlert: '/api/notify/fall-alert (POST with X-API-KEY)',
+      fallAlerts: '/api/notify/fall-alerts (GET with JWT)'
+    }
   });
 });
 
@@ -95,7 +118,9 @@ app.use((req, res) => {
 
 /* ---------------------- 🔥 SENTRY ERROR HANDLER -------------------------- */
 
-app.use(Sentry.Handlers.errorHandler());
+if (process.env.SENTRY_DSN) {
+  app.use(Sentry.Handlers.errorHandler());
+}
 
 /* ---------------------- ⚠️ CUSTOM ERROR HANDLER -------------------------- */
 
@@ -116,4 +141,6 @@ startReminderScheduler();
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
   console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
+  console.log(`🚨 Fall alert endpoint: http://localhost:${PORT}/api/notify/fall-alert`);
+  console.log(`📋 API Key required: ${process.env.FALL_ALERT_TOKEN ? 'Yes ✅' : 'No ⚠️'}`);
 });

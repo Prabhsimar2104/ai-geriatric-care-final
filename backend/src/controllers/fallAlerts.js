@@ -1,6 +1,11 @@
 // backend/src/controllers/fallAlerts.js
 import db from '../db.js';
-import { sendPushToUser, sendEmailAlert, sendSMSAlert } from '../utils/notificationService.js';
+import { sendFallAlertEmail } from '../utils/emailService.js';
+import { sendFallAlertSMS } from '../utils/smsService.js';
+import { sendPushNotification } from './notify.js';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 /**
  * POST /api/notify/fall-alert
@@ -9,7 +14,20 @@ import { sendPushToUser, sendEmailAlert, sendSMSAlert } from '../utils/notificat
  */
 export const receiveFallAlert = async (req, res) => {
   try {
-    const { userId, timestamp, confidence, imageUrl } = req.body;
+    // Handle both camelCase (userId) and snake_case (user_id) from Python
+    const userId = req.body.userId || req.body.user_id;
+    const timestamp = req.body.timestamp;
+    const confidence = req.body.confidence;
+    const imageUrl = req.body.imageUrl || req.body.image_url;
+    const fallType = req.body.fallType || req.body.fall_type;
+
+    console.log('🚨 Fall alert received:', {
+      userId,
+      timestamp,
+      confidence,
+      fallType,
+      imageUrl: imageUrl ? 'Yes' : 'No'
+    });
 
     // Validate required fields
     if (!userId || !timestamp) {
@@ -26,140 +44,127 @@ export const receiveFallAlert = async (req, res) => {
     );
 
     const fallAlertId = result.insertId;
+    console.log(`✅ Fall alert saved to database (ID: ${fallAlertId})`);
 
-    // Get elderly user details
-    const [elderlyUser] = await db.query(
-      'SELECT name, email, phone FROM users WHERE id = ? AND role = "elderly"',
+    // Get user details
+    const [users] = await db.query(
+      'SELECT id, name, email, phone, role FROM users WHERE id = ?',
       [userId]
     );
 
-    if (elderlyUser.length === 0) {
-      return res.status(404).json({ error: 'Elderly user not found' });
+    if (users.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
     }
 
-    const elderly = elderlyUser[0];
-
-    // Get all caregivers assigned to this elderly user
-    const [caregivers] = await db.query(
-      `SELECT DISTINCT u.id, u.name, u.email, u.phone, r.permissions
-       FROM users u
-       JOIN caregiver_elderly_relationships r ON u.id = r.caregiver_id
-       WHERE r.elderly_id = ? AND r.status = 'active' AND u.role = 'caregiver'
-       ORDER BY r.is_primary DESC`,
-      [userId]
-    );
-
-    // If no assigned caregivers, fall back to all caregivers (backward compatibility)
-    if (caregivers.length === 0) {
-      console.warn(`No assigned caregivers for elderly user ${userId}, notifying all caregivers`);
-      const [allCaregivers] = await db.query(
-        'SELECT id, name, email, phone FROM users WHERE role = "caregiver"'
-      );
-      caregivers.push(...allCaregivers);
-    }
+    const user = users[0];
 
     // Get emergency contacts for this user
     const [emergencyContacts] = await db.query(
-      'SELECT name, email, phone FROM emergency_contacts WHERE user_id = ? ORDER BY priority ASC',
+      'SELECT name, email, phone, relationship, priority FROM emergency_contacts WHERE user_id = ? ORDER BY priority ASC',
       [userId]
     );
 
-    // Prepare alert message
-    const alertMessage = `🚨 FALL DETECTED!\n\n${elderly.name} may have fallen.\n\nTime: ${new Date(timestamp).toLocaleString()}\nConfidence: ${confidence ? (confidence * 100).toFixed(1) + '%' : 'N/A'}\n\nPlease check immediately!`;
+    console.log(`📋 Found ${emergencyContacts.length} emergency contact(s)`);
 
-    // Send immediate notifications to all caregivers
-    const notificationPromises = [];
-
-    // Web Push notifications to caregivers
-    for (const caregiver of caregivers) {
-      notificationPromises.push(
-        sendPushToUser(caregiver.id, {
-          title: '🚨 Fall Alert',
-          body: `${elderly.name} may have fallen! Please check immediately.`,
-          icon: '/fall-alert-icon.png',
-          badge: '/badge-icon.png',
-          tag: `fall-alert-${fallAlertId}`,
-          requireInteraction: true,
-          data: {
-            type: 'fall-alert',
-            fallAlertId,
-            userId,
-            timestamp
-          }
-        }).catch(err => console.error(`Push to caregiver ${caregiver.id} failed:`, err))
-      );
-
-      // Send immediate email to caregivers
-      notificationPromises.push(
-        sendEmailAlert(
-          caregiver.email,
-          '🚨 Fall Alert - Immediate Attention Required',
-          alertMessage,
-          `
-            <div style="font-family: Arial, sans-serif; padding: 20px; background-color: #fff3cd; border-left: 5px solid #ff0000;">
-              <h2 style="color: #d32f2f;">🚨 FALL DETECTED</h2>
-              <p><strong>${elderly.name}</strong> may have fallen and requires immediate attention.</p>
-              <ul style="line-height: 1.8;">
-                <li><strong>Time:</strong> ${new Date(timestamp).toLocaleString()}</li>
-                <li><strong>Confidence:</strong> ${confidence ? (confidence * 100).toFixed(1) + '%' : 'N/A'}</li>
-                ${imageUrl ? `<li><strong>Image:</strong> <a href="${imageUrl}">View Image</a></li>` : ''}
-              </ul>
-              <p style="margin-top: 20px; padding: 15px; background-color: #ffebee; border-radius: 5px;">
-                <strong>Action Required:</strong> Please check on ${elderly.name} immediately or contact emergency services if needed.
-              </p>
-            </div>
-          `
-        ).catch(err => console.error(`Email to caregiver ${caregiver.email} failed:`, err))
-      );
+    if (emergencyContacts.length === 0) {
+      console.log('⚠️  No emergency contacts found, saving alert only');
+      return res.status(201).json({ 
+        message: 'Fall alert saved but no emergency contacts to notify',
+        fallAlertId,
+        notificationsSent: {
+          contacts: 0,
+          emails: 0,
+          sms: 0
+        }
+      });
     }
 
-    // Send email to emergency contacts
+    // Prepare alert data for emails
+    const emailData = {
+      userName: user.name,
+      timestamp: timestamp,
+      confidence: confidence || 0.9,
+      imageUrl: imageUrl || null
+    };
+
+    // Send notifications to all emergency contacts
+    let emailsSent = 0;
+    let smsSent = 0;
+    const notificationPromises = [];
+
     for (const contact of emergencyContacts) {
+      // Send email if available
       if (contact.email) {
         notificationPromises.push(
-          sendEmailAlert(
-            contact.email,
-            '🚨 Fall Alert - Emergency Notification',
-            alertMessage,
-            `
-              <div style="font-family: Arial, sans-serif; padding: 20px; background-color: #fff3cd; border-left: 5px solid #ff0000;">
-                <h2 style="color: #d32f2f;">🚨 EMERGENCY: FALL DETECTED</h2>
-                <p>Dear ${contact.name},</p>
-                <p><strong>${elderly.name}</strong> may have fallen and requires immediate attention.</p>
-                <ul style="line-height: 1.8;">
-                  <li><strong>Time:</strong> ${new Date(timestamp).toLocaleString()}</li>
-                  <li><strong>Confidence:</strong> ${confidence ? (confidence * 100).toFixed(1) + '%' : 'N/A'}</li>
-                </ul>
-                <p style="margin-top: 20px; padding: 15px; background-color: #ffebee; border-radius: 5px;">
-                  <strong>Please contact ${elderly.name} immediately or call emergency services.</strong>
-                </p>
-              </div>
-            `
-          ).catch(err => console.error(`Email to emergency contact ${contact.email} failed:`, err))
+          sendFallAlertEmail(contact.email, emailData, userId)
+            .then(result => {
+              if (result.success) {
+                emailsSent++;
+                console.log(`✅ Fall alert email sent to: ${contact.email}`);
+              } else {
+                console.error(`❌ Failed to send email to: ${contact.email}`, result.error);
+              }
+            })
+            .catch(err => console.error(`❌ Email error for ${contact.email}:`, err))
+        );
+      }
+
+      // Send SMS if available
+      if (contact.phone) {
+        notificationPromises.push(
+          sendFallAlertSMS(contact.phone, user.name, userId)
+            .then(result => {
+              if (result.success) {
+                smsSent++;
+                console.log(`✅ Fall alert SMS sent to: ${contact.phone}`);
+              } else {
+                console.error(`❌ Failed to send SMS to: ${contact.phone}`, result.error);
+              }
+            })
+            .catch(err => console.error(`❌ SMS error for ${contact.phone}:`, err))
         );
       }
     }
 
-    // Wait for all notifications to be sent
+    // Send push notification to user
+    notificationPromises.push(
+      sendPushNotification(userId, {
+        title: '🚨 Fall Alert',
+        body: `Fall detected! Emergency contacts have been notified.`,
+        icon: '/fall-alert-icon.png',
+        tag: `fall-alert-${fallAlertId}`,
+        requireInteraction: true,
+        data: {
+          type: 'fall-alert',
+          fallAlertId,
+          timestamp
+        }
+      }).catch(err => console.error('Push notification error:', err))
+    );
+
+    // Wait for all notifications to complete
     await Promise.all(notificationPromises);
 
-    // Schedule escalation SMS after delay if not acknowledged
+    console.log(`✅ Fall alert processed: ${emailsSent} emails, ${smsSent} SMS sent`);
+
+    // Schedule SMS escalation if not acknowledged
     const smsDelayMinutes = parseInt(process.env.FALL_ALERT_SMS_DELAY_MINUTES) || 10;
     setTimeout(async () => {
-      await checkAndEscalateFallAlert(fallAlertId, userId, elderly.name, timestamp, caregivers, emergencyContacts);
+      await checkAndEscalateFallAlert(fallAlertId, userId, user.name, timestamp, emergencyContacts);
     }, smsDelayMinutes * 60 * 1000);
 
     res.status(201).json({ 
       message: 'Fall alert received and notifications sent',
       fallAlertId,
       notificationsSent: {
-        caregivers: caregivers.length,
-        emergencyContacts: emergencyContacts.length
+        contacts: emergencyContacts.length,
+        emails: emailsSent,
+        sms: smsSent
       }
     });
 
   } catch (error) {
-    console.error('Error processing fall alert:', error);
+    console.error('❌ Error processing fall alert:', error);
     res.status(500).json({ 
       error: 'Failed to process fall alert',
       message: error.message 
@@ -187,6 +192,12 @@ export const getFallAlerts = async (req, res) => {
       WHERE 1=1
     `;
     const params = [];
+
+    // If not admin, only show user's own alerts
+    if (req.user.role !== 'caregiver') {
+      query += ' AND fa.user_id = ?';
+      params.push(req.user.id);
+    }
 
     if (acknowledged !== undefined) {
       query += ' AND fa.acknowledged = ?';
@@ -225,14 +236,14 @@ export const getFallAlerts = async (req, res) => {
 export const acknowledgeFallAlert = async (req, res) => {
   try {
     const { id } = req.params;
-    const caregiverId = req.userId; // From JWT middleware
+    const userId = req.user.id;
 
     // Update the alert
     const [result] = await db.query(
       `UPDATE fall_alerts 
        SET acknowledged = 1, acknowledged_by = ?, acknowledged_at = NOW() 
        WHERE id = ?`,
-      [caregiverId, id]
+      [userId, id]
     );
 
     if (result.affectedRows === 0) {
@@ -241,15 +252,18 @@ export const acknowledgeFallAlert = async (req, res) => {
 
     // Get alert details
     const [alert] = await db.query(
-      `SELECT fa.*, u.name as user_name, c.name as caregiver_name
+      `SELECT fa.*, u.name as user_name, ack.name as acknowledged_by_name
        FROM fall_alerts fa
        LEFT JOIN users u ON fa.user_id = u.id
-       LEFT JOIN users c ON fa.acknowledged_by = c.id
+       LEFT JOIN users ack ON fa.acknowledged_by = ack.id
        WHERE fa.id = ?`,
       [id]
     );
 
+    console.log(`✅ Fall alert ${id} acknowledged by user ${userId}`);
+
     res.json({
+      success: true,
       message: 'Fall alert acknowledged successfully',
       alert: alert[0]
     });
@@ -266,7 +280,7 @@ export const acknowledgeFallAlert = async (req, res) => {
 /**
  * Helper function to check and escalate unacknowledged alerts via SMS
  */
-async function checkAndEscalateFallAlert(fallAlertId, userId, elderlyName, timestamp, caregivers, emergencyContacts) {
+async function checkAndEscalateFallAlert(fallAlertId, userId, userName, timestamp, emergencyContacts) {
   try {
     // Check if alert has been acknowledged
     const [alert] = await db.query(
@@ -279,26 +293,20 @@ async function checkAndEscalateFallAlert(fallAlertId, userId, elderlyName, times
       return;
     }
 
+    console.log(`⚠️  Fall alert ${fallAlertId} not acknowledged, escalating...`);
+
     // Alert not acknowledged - send SMS escalation
-    const smsMessage = `🚨 URGENT: ${elderlyName} fell at ${new Date(timestamp).toLocaleString()}. Alert not acknowledged. Please respond immediately!`;
+    const smsMessage = `🚨 URGENT: ${userName} fell at ${new Date(timestamp).toLocaleString()}. Alert not acknowledged. Please respond immediately!`;
 
-    // Send SMS to all caregivers
-    for (const caregiver of caregivers) {
-      if (caregiver.phone) {
-        await sendSMSAlert(caregiver.phone, smsMessage)
-          .catch(err => console.error(`SMS to caregiver ${caregiver.phone} failed:`, err));
-      }
-    }
-
-    // Send SMS to emergency contacts
+    // Send SMS to all emergency contacts
     for (const contact of emergencyContacts) {
       if (contact.phone) {
-        await sendSMSAlert(contact.phone, smsMessage)
-          .catch(err => console.error(`SMS to emergency contact ${contact.phone} failed:`, err));
+        await sendFallAlertSMS(contact.phone, userName, userId)
+          .catch(err => console.error(`SMS escalation error for ${contact.phone}:`, err));
       }
     }
 
-    console.log(`Escalation SMS sent for fall alert ${fallAlertId}`);
+    console.log(`✅ Escalation SMS sent for fall alert ${fallAlertId}`);
 
   } catch (error) {
     console.error('Error in fall alert escalation:', error);
