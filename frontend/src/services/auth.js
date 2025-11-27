@@ -2,13 +2,13 @@ import api from './api.js';
 
 // Signup new user
 export const signup = async (userData) => {
-  const response = await api.post('/auth/signup', userData);
+  const response = await api.post('/api/auth/signup', userData);
   return response.data;
 };
 
 // Login user
 export const login = async (credentials) => {
-  const response = await api.post('/auth/login', credentials);
+  const response = await api.post('/api/auth/login', credentials);
   
   if (response.data.token) {
     localStorage.setItem('token', response.data.token);
@@ -41,6 +41,6 @@ export const isLoggedIn = () => {
 
 // Get user profile from server
 export const getProfile = async () => {
-  const response = await api.get('/auth/me');
+  const response = await api.get('/api/auth/me');
   return response.data;
 };
