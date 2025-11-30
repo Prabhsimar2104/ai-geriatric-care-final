@@ -2,184 +2,206 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getCurrentUser, logout, isLoggedIn } from '../services/auth';
 import PushNotificationSetup from '../components/PushNotificationSetup';
+import Layout from '../components/Layout';
+import { Bell, Activity, MessageSquare, Calendar, TrendingUp, AlertCircle } from 'lucide-react';
 
-function Dashboard() {
+export default function Dashboard() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    if (!isLoggedIn()) {
-      navigate('/login');
-      return;
-    }
-
     const currentUser = getCurrentUser();
     setUser(currentUser);
-  }, [navigate]);
-
-  const handleLogout = () => {
-    if (window.confirm('Are you sure you want to logout?')) {
-      logout();
-    }
-  };
-
-  if (!user) {
-    return <div>Loading...</div>;
-  }
+  }, []);
 
   return (
-    <div style={styles.container}>
-      <div style={styles.header}>
-        <h1 style={styles.title}>🏥 AI Geriatric Care Dashboard</h1>
-        <button onClick={handleLogout} style={styles.logoutBtn}>
-          Logout
-        </button>
-      </div>
+    <Layout title="Dashboard">
+      <div className="animate-fade-in">
+        {/* Hero Section */}
+        <div className="relative mb-12 overflow-hidden rounded-2xl">
+          {/* Animated Gradient Background */}
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-purple-500/10 to-pink-500/10 animate-gradient"></div>
 
-      <div style={styles.welcomeCard}>
-        <h2 style={styles.welcomeTitle}>Welcome, {user.name}! 👋</h2>
-        <div style={styles.userInfo}>
-          <p><strong>Email:</strong> {user.email}</p>
-          <p><strong>Role:</strong> {user.role === 'elderly' ? '👴 Elderly User' : '🩺 Caregiver'}</p>
-          <p><strong>Phone:</strong> {user.phone || 'Not provided'}</p>
-          <p><strong>Language:</strong> {user.preferred_language}</p>
+          {/* Starfield */}
+          <div className="absolute inset-0 overflow-hidden">
+            <div className="star" style={{ top: '10%', left: '20%' }}></div>
+            <div className="star" style={{ top: '30%', left: '60%' }}></div>
+            <div className="star" style={{ top: '50%', left: '15%' }}></div>
+            <div className="star" style={{ top: '70%', left: '80%' }}></div>
+            <div className="star" style={{ top: '20%', left: '85%' }}></div>
+            <div className="star" style={{ top: '60%', left: '40%' }}></div>
+            <div className="star" style={{ top: '80%', left: '25%' }}></div>
+            <div className="star" style={{ top: '40%', left: '70%' }}></div>
+          </div>
+
+          {/* Gradient Orbs */}
+          <div className="absolute top-0 right-0 w-96 h-96 bg-primary/30 rounded-full blur-3xl"></div>
+          <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl"></div>
+
+          {/* Hero Content */}
+          <div className="relative z-10 p-12 text-center">
+            <h1 className="text-5xl font-bold text-white mb-4">
+              AI Geriatric Care Dashboard
+            </h1>
+            <p className="text-xl text-slate-300 mb-8 max-w-2xl mx-auto">
+              Comprehensive health monitoring and care management for elderly patients
+            </p>
+
+            {/* User Welcome Card */}
+            <div className="glass-panel max-w-2xl mx-auto p-6">
+              <div className="flex items-center justify-center gap-4 mb-4">
+                <div className="text-left">
+                  <h2 className="text-2xl font-bold text-white">
+                    Welcome back, <span className="text-gradient">{user?.name || 'User'}</span>!
+                  </h2>
+                  <div className="flex items-center gap-3 text-slate-400 mt-1">
+                    <span className="badge badge-primary">{user?.role || 'Caregiver'}</span>
+                    <span>•</span>
+                    <span>{user?.email}</span>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-slate-800/50 p-4 rounded-lg">
+                <PushNotificationSetup />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Today's Overview - Stat Cards */}
+        <div className="mb-12">
+          <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
+            <TrendingUp className="text-primary" size={28} />
+            Today's Overview
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* Upcoming Reminders */}
+            <div className="card bg-gradient-to-br from-blue-500/10 to-blue-600/5 border-blue-500/20 hover:border-blue-500/40 transition-all">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-3 bg-blue-500/20 rounded-xl">
+                  <Bell className="text-blue-400" size={24} />
+                </div>
+                <span className="text-3xl font-bold text-blue-400">5</span>
+              </div>
+              <h3 className="text-white font-semibold mb-1">Upcoming Reminders</h3>
+              <p className="text-slate-400 text-sm">Due in next 24 hours</p>
+            </div>
+
+            {/* Unread Fall Alerts */}
+            <div className="card bg-gradient-to-br from-red-500/10 to-red-600/5 border-red-500/20 hover:border-red-500/40 transition-all">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-3 bg-red-500/20 rounded-xl">
+                  <AlertCircle className="text-red-400" size={24} />
+                </div>
+                <span className="text-3xl font-bold text-red-400">2</span>
+              </div>
+              <h3 className="text-white font-semibold mb-1">Unread Alerts</h3>
+              <p className="text-slate-400 text-sm">Require attention</p>
+            </div>
+
+            {/* Last Fall Event */}
+            <div className="card bg-gradient-to-br from-orange-500/10 to-orange-600/5 border-orange-500/20 hover:border-orange-500/40 transition-all">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-3 bg-orange-500/20 rounded-xl">
+                  <Activity className="text-orange-400" size={24} />
+                </div>
+                <span className="text-2xl font-bold text-orange-400">2d</span>
+              </div>
+              <h3 className="text-white font-semibold mb-1">Last Fall Event</h3>
+              <p className="text-slate-400 text-sm">2 days ago</p>
+            </div>
+
+            {/* Chat Activity */}
+            <div className="card bg-gradient-to-br from-purple-500/10 to-purple-600/5 border-purple-500/20 hover:border-purple-500/40 transition-all">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-3 bg-purple-500/20 rounded-xl">
+                  <MessageSquare className="text-purple-400" size={24} />
+                </div>
+                <span className="text-3xl font-bold text-purple-400">12</span>
+              </div>
+              <h3 className="text-white font-semibold mb-1">Chat Messages</h3>
+              <p className="text-slate-400 text-sm">This week</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Quick Actions Grid */}
+        <div className="mb-8">
+          <h2 className="text-2xl font-bold text-white mb-6">Quick Actions</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+            {/* Reminders */}
+            <div
+              onClick={() => navigate('/reminders')}
+              className="card hover:border-primary/50 transition-all cursor-pointer group hover:scale-105"
+            >
+              <div className="flex items-center gap-4 mb-4">
+                <div className="p-3 bg-blue-500/10 text-blue-400 rounded-lg group-hover:bg-blue-500 group-hover:text-white transition-colors">
+                  <Bell size={24} />
+                </div>
+                <h3 className="text-xl font-semibold text-white">Reminders</h3>
+              </div>
+              <p className="text-slate-400">Manage medication schedules and appointments.</p>
+            </div>
+
+            {/* Fall Alerts */}
+            <div
+              onClick={() => navigate('/fall-alerts')}
+              className="card hover:border-red-500/50 transition-all cursor-pointer group hover:scale-105"
+            >
+              <div className="flex items-center gap-4 mb-4">
+                <div className="p-3 bg-red-500/10 text-red-400 rounded-lg group-hover:bg-red-500 group-hover:text-white transition-colors">
+                  <Activity size={24} />
+                </div>
+                <h3 className="text-xl font-semibold text-white">Fall Alerts</h3>
+              </div>
+              <p className="text-slate-400">Monitor fall detection events and alerts.</p>
+            </div>
+
+            {/* AI Chat */}
+            <div
+              onClick={() => navigate('/chat')}
+              className="card hover:border-purple-500/50 transition-all cursor-pointer group hover:scale-105"
+            >
+              <div className="flex items-center gap-4 mb-4">
+                <div className="p-3 bg-purple-500/10 text-purple-400 rounded-lg group-hover:bg-purple-500 group-hover:text-white transition-colors">
+                  <MessageSquare size={24} />
+                </div>
+                <h3 className="text-xl font-semibold text-white">AI Chat</h3>
+              </div>
+              <p className="text-slate-400">Chat with the AI assistant for help and info.</p>
+            </div>
+
+            {/* ⭐ NEW FALL DETECTION BUTTON ⭐ */}
+            <div
+              onClick={() =>
+                window.open(
+                  "https://fall-detection-final-hhfcbskbhyappcxen8dapzr.streamlit.app/",
+                  "_blank"
+                )
+              }
+              className="card hover:border-indigo-500/50 transition-all cursor-pointer group hover:scale-105"
+            >
+              <div className="flex items-center gap-4 mb-4">
+                <div className="p-3 bg-indigo-500/10 text-indigo-400 rounded-lg group-hover:bg-indigo-500 group-hover:text-white transition-colors">
+                  <Activity size={24} />
+                </div>
+                <h3 className="text-xl font-semibold text-white">Fall Detection</h3>
+              </div>
+              <p className="text-slate-400">Open real-time AI fall detection system.</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Status Section */}
+        <div className="card border-green-500/20 bg-green-500/5">
+          <div className="flex items-center gap-3">
+            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+            <h3 className="text-lg font-semibold text-green-400">System Status</h3>
+          </div>
+          <p className="text-green-400/80 mt-2 ml-5">All systems are running normally. Monitoring active.</p>
         </div>
       </div>
-
-      <PushNotificationSetup />
-
-      <div style={styles.grid}>
-        <div style={styles.card} onClick={() => navigate('/reminders')}>
-        <h3>💊 Reminders</h3>
-        <p>Medicine and activity reminders</p>
-        <button style={styles.cardButton}>Go to Reminders →</button>
-        </div>
-
-        <div style={styles.card} onClick={() => navigate('/chat')}>
-        <h3>💬 AI Chat</h3>
-        <p>Talk to AI assistant</p>
-        <button style={styles.cardButton}>Go to Chat →</button>
-      </div>
-
-        <div style={styles.card} onClick={() => navigate('/fall-alerts')}>
-          <h3>🚨 Fall Alerts</h3>
-          <p>Emergency notifications</p>
-          <button style={styles.cardButton}>View Fall Alerts →</button>
-        </div>
-
-
-        <div style={styles.card}>
-          <h3>⚙️ Settings</h3>
-          <p>Account settings</p>
-          <p style={styles.comingSoon}>Coming soon</p>
-        </div>
-      </div>
-
-      <div style={styles.statusCard}>
-        <h3>✅ Step 3 Complete!</h3>
-        <p>Authentication system is working:</p>
-        <ul style={styles.list}>
-          <li>✅ User signup</li>
-          <li>✅ User login</li>
-          <li>✅ JWT authentication</li>
-          <li>✅ Protected dashboard</li>
-        </ul>
-        <p style={styles.nextStep}>Ready for Step 4: Reminders System</p>
-      </div>
-    </div>
+    </Layout>
   );
 }
-
-const styles = {
-  container: {
-    minHeight: '100vh',
-    backgroundColor: '#f5f5f5',
-    padding: '20px'
-  },
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '30px',
-    flexWrap: 'wrap',
-    gap: '10px'
-  },
-  title: {
-    color: '#333',
-    fontSize: '28px',
-    margin: 0
-  },
-  logoutBtn: {
-    padding: '10px 20px',
-    backgroundColor: '#dc3545',
-    color: 'white',
-    border: 'none',
-    borderRadius: '6px',
-    cursor: 'pointer',
-    fontWeight: '600'
-  },
-  welcomeCard: {
-    backgroundColor: 'white',
-    padding: '30px',
-    borderRadius: '12px',
-    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-    marginBottom: '30px'
-  },
-  welcomeTitle: {
-    color: '#333',
-    marginBottom: '20px'
-  },
-  userInfo: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '10px',
-    color: '#666'
-  },
-  grid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-    gap: '20px',
-    marginBottom: '30px'
-  },
-  card: {
-    backgroundColor: 'white',
-    padding: '25px',
-    borderRadius: '12px',
-    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-    textAlign: 'center'
-  },
-  comingSoon: {
-    color: '#999',
-    fontStyle: 'italic',
-    marginTop: '10px',
-    fontSize: '14px'
-  },
-  statusCard: {
-    backgroundColor: '#d4edda',
-    padding: '25px',
-    borderRadius: '12px',
-    border: '2px solid #c3e6cb'
-  },
-  list: {
-    marginTop: '15px',
-    marginBottom: '15px',
-    paddingLeft: '20px'
-  },
-  nextStep: {
-    fontWeight: 'bold',
-    color: '#155724',
-    marginTop: '15px'
-  },
-  cardButton: {
-  marginTop: '10px',
-  padding: '8px 16px',
-  backgroundColor: '#007bff',
-  color: 'white',
-  border: 'none',
-  borderRadius: '6px',
-  cursor: 'pointer',
-  fontWeight: '600'
-  }
-};
-
-export default Dashboard;

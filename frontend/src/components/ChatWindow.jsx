@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import api from '../services/api';
+import { Mic, Send, Trash2 } from 'lucide-react';
 
 function ChatWindow() {
   const [messages, setMessages] = useState([]);
@@ -35,7 +36,7 @@ function ChatWindow() {
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       const recognitionInstance = new SpeechRecognition();
-      
+
       recognitionInstance.continuous = false;
       recognitionInstance.interimResults = false;
       recognitionInstance.lang = 'en-US';
@@ -103,7 +104,7 @@ function ChatWindow() {
 
     const userMsg = inputMessage.trim();
     setInputMessage('');
-    
+
     // Add user message to chat
     setMessages(prev => [...prev, {
       type: 'user',
@@ -170,244 +171,131 @@ function ChatWindow() {
       utterance.rate = 0.9;
       utterance.pitch = 1;
       utterance.volume = 1;
-      
+
       window.speechSynthesis.speak(utterance);
     }
   };
 
   return (
-    <div style={styles.container}>
-      <div style={styles.header}>
-        <div>
-          <h3 style={styles.title}>💬 AI Chat Assistant</h3>
-          <p style={styles.subtitle}>Powered by Google Gemini AI 🤖</p>
-        </div>
-        <div style={styles.controls}>
-          <select
-            value={language}
-            onChange={(e) => setLanguage(e.target.value)}
-            style={styles.languageSelect}
-          >
-            <option value="en">🇬🇧 English</option>
-            <option value="hi">🇮🇳 हिंदी</option>
-            <option value="pa">🇮🇳 ਪੰਜਾਬੀ</option>
-          </select>
-          <button onClick={handleClearHistory} style={styles.clearBtn}>
-            🗑️ Clear
-          </button>
+    <div className="glass-panel flex flex-col h-full rounded-2xl overflow-hidden border-2 border-white/10 shadow-2xl">
+      {/* Chat Header */}
+      <div className="p-5 border-b-2 border-white/10 bg-gradient-to-r from-slate-800/50 to-slate-900/50">
+        <div className="flex justify-between items-center">
+          <div>
+            <h3 className="text-xl font-bold text-white flex items-center gap-2">
+              💬 Chat Assistant
+            </h3>
+            <p className="text-xs text-slate-400 mt-1">Powered by Google Gemini AI 🤖</p>
+          </div>
+          <div className="flex gap-3">
+            <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+              className="px-4 py-2 rounded-xl bg-slate-900 border-2 border-slate-700 text-white text-sm font-semibold focus:border-primary outline-none cursor-pointer transition-all"
+            >
+              <option value="en">🇬🇧 English</option>
+              <option value="hi">🇮🇳 हिंदी</option>
+              <option value="pa">🇮🇳 ਪੰਜਾਬੀ</option>
+            </select>
+            <button
+              onClick={handleClearHistory}
+              className="px-4 py-2 bg-danger/20 text-danger border-2 border-danger/30 rounded-xl text-sm font-bold hover:bg-danger/30 transition-all flex items-center gap-2"
+            >
+              <Trash2 size={16} />
+              Clear
+            </button>
+          </div>
         </div>
       </div>
 
-      <div style={styles.messagesContainer}>
+      {/* Messages Area */}
+      <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gradient-to-b from-slate-900/20 to-transparent custom-scrollbar">
         {messages.length === 0 ? (
-          <div style={styles.emptyState}>
-            <p style={styles.emptyText}>👋 Start a conversation!</p>
-            <p style={styles.emptySubtext}>Ask me anything about health, reminders, or how I can help you.</p>
-            <p style={styles.emptySubtext}>🎤 You can type or use voice input!</p>
+          <div className="text-center py-20">
+            <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-to-br from-primary/20 to-purple-500/20 flex items-center justify-center">
+              <span className="text-5xl">👋</span>
+            </div>
+            <h3 className="text-2xl font-bold text-white mb-3">Start a Conversation!</h3>
+            <p className="text-slate-400 mb-2">Ask me anything about health, reminders, or how I can help you.</p>
+            <p className="text-slate-500 text-sm">🎤 You can type or use voice input!</p>
           </div>
         ) : (
           messages.map((msg, index) => (
             <div
               key={index}
-              style={{
-                ...styles.messageWrapper,
-                justifyContent: msg.type === 'user' ? 'flex-end' : 'flex-start'
-              }}
+              className={`flex ${msg.type === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}
             >
               <div
-                style={{
-                  ...styles.message,
-                  ...(msg.type === 'user' ? styles.userMessage : styles.botMessage)
-                }}
+                className={`max-w-[75%] px-5 py-3 rounded-2xl shadow-lg ${msg.type === 'user'
+                    ? 'bg-gradient-to-r from-primary to-blue-600 text-white rounded-br-sm'
+                    : 'bg-slate-800 text-slate-100 rounded-bl-sm border-2 border-slate-700'
+                  }`}
               >
-                {msg.text}
+                <p className="text-base leading-relaxed whitespace-pre-wrap break-words">{msg.text}</p>
               </div>
             </div>
           ))
         )}
         {loading && (
-          <div style={styles.messageWrapper}>
-            <div style={{ ...styles.message, ...styles.botMessage }}>
-              <span style={styles.typing}>●●●</span> Thinking...
+          <div className="flex justify-start animate-fade-in">
+            <div className="bg-slate-800 text-slate-300 rounded-2xl rounded-bl-sm border-2 border-slate-700 px-5 py-4 flex items-center gap-3">
+              <div className="flex gap-1">
+                <span className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                <span className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                <span className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+              </div>
+              <span className="text-sm font-medium">AI is thinking...</span>
             </div>
           </div>
         )}
         <div ref={messagesEndRef} />
       </div>
 
-      <div style={styles.inputContainer}>
-        <button
-          onClick={handleVoiceInput}
-          style={{
-            ...styles.voiceBtn,
-            backgroundColor: isListening ? '#dc3545' : '#007bff'
-          }}
-          title="Voice input"
-        >
-          {isListening ? '🎤 Listening...' : '🎤'}
-        </button>
-        <textarea
-          value={inputMessage}
-          onChange={(e) => setInputMessage(e.target.value)}
-          onKeyPress={handleKeyPress}
-          placeholder={
-            language === 'hi' ? 'अपना संदेश टाइप करें या 🎤 दबाएं...' :
-            language === 'pa' ? 'ਆਪਣਾ ਸੁਨੇਹਾ ਟਾਈਪ ਕਰੋ ਜਾਂ 🎤 ਦਬਾਓ...' :
-            'Type your message or press 🎤...'
-          }
-          style={styles.input}
-          rows={2}
-        />
-        <button
-          onClick={handleSend}
-          disabled={loading || !inputMessage.trim()}
-          style={{
-            ...styles.sendBtn,
-            opacity: loading || !inputMessage.trim() ? 0.5 : 1,
-            cursor: loading || !inputMessage.trim() ? 'not-allowed' : 'pointer'
-          }}
-        >
-          📤
-        </button>
+      {/* Input Area with Glow */}
+      <div className="p-5 border-t-2 border-white/10 bg-gradient-to-r from-slate-800/50 to-slate-900/50">
+        <div className="flex gap-3 items-end">
+          <button
+            onClick={handleVoiceInput}
+            className={`p-4 rounded-2xl transition-all duration-300 flex-shrink-0 ${isListening
+                ? 'bg-danger text-white animate-pulse shadow-lg shadow-danger/40 scale-110'
+                : 'bg-slate-700 text-primary hover:bg-slate-600 hover:scale-105'
+              }`}
+            title="Voice input"
+          >
+            <Mic size={24} />
+          </button>
+          <div className="flex-1 relative">
+            <textarea
+              value={inputMessage}
+              onChange={(e) => setInputMessage(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder={
+                language === 'hi' ? 'अपना संदेश लिखें...' :
+                  language === 'pa' ? 'ਆਪਣਾ ਸੁਨੇਹਾ ਲਿਖੋ...' :
+                    'Type your message...'
+              }
+              className="w-full px-5 py-4 bg-slate-900 border-2 border-slate-700 rounded-2xl text-white placeholder-slate-500 resize-none outline-none focus:border-primary focus:ring-4 focus:ring-primary/20 transition-all"
+              rows="2"
+            />
+          </div>
+          <button
+            onClick={handleSend}
+            disabled={!inputMessage.trim() || loading}
+            className={`p-4 rounded-2xl transition-all flex-shrink-0 ${inputMessage.trim() && !loading
+                ? 'bg-gradient-to-r from-primary to-blue-600 text-white hover:scale-105 shadow-lg shadow-primary/40'
+                : 'bg-slate-700 text-slate-500 cursor-not-allowed'
+              }`}
+            title="Send message"
+          >
+            <Send size={24} />
+          </button>
+        </div>
+        <p className="text-xs text-slate-500 mt-3 text-center">
+          Press <kbd className="px-2 py-1 bg-slate-800 rounded border border-slate-700">Enter</kbd> to send, <kbd className="px-2 py-1 bg-slate-800 rounded border border-slate-700">Shift + Enter</kbd> for new line
+        </p>
       </div>
     </div>
   );
 }
-
-const styles = {
-  container: {
-    display: 'flex',
-    flexDirection: 'column',
-    height: 'calc(100vh - 100px)',
-    backgroundColor: 'white',
-    borderRadius: '12px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-    overflow: 'hidden'
-  },
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    padding: '20px',
-    borderBottom: '2px solid #f0f0f0',
-    backgroundColor: '#f8f9fa',
-    flexWrap: 'wrap',
-    gap: '10px'
-  },
-  title: {
-    margin: 0,
-    color: '#333'
-  },
-  subtitle: {
-    margin: '5px 0 0 0',
-    color: '#666',
-    fontSize: '12px'
-  },
-  controls: {
-    display: 'flex',
-    gap: '10px'
-  },
-  languageSelect: {
-    padding: '8px 12px',
-    borderRadius: '6px',
-    border: '1px solid #ddd',
-    fontSize: '14px',
-    cursor: 'pointer'
-  },
-  clearBtn: {
-    padding: '8px 16px',
-    backgroundColor: '#dc3545',
-    color: 'white',
-    border: 'none',
-    borderRadius: '6px',
-    fontSize: '14px',
-    cursor: 'pointer',
-    fontWeight: '600'
-  },
-  messagesContainer: {
-    flex: 1,
-    overflowY: 'auto',
-    padding: '20px',
-    backgroundColor: '#fafafa'
-  },
-  emptyState: {
-    textAlign: 'center',
-    padding: '60px 20px',
-    color: '#999'
-  },
-  emptyText: {
-    fontSize: '20px',
-    marginBottom: '10px'
-  },
-  emptySubtext: {
-    fontSize: '14px',
-    color: '#aaa',
-    marginBottom: '5px'
-  },
-  messageWrapper: {
-    display: 'flex',
-    marginBottom: '16px'
-  },
-  message: {
-    maxWidth: '70%',
-    padding: '12px 16px',
-    borderRadius: '12px',
-    lineHeight: '1.5',
-    fontSize: '15px',
-    wordWrap: 'break-word'
-  },
-  userMessage: {
-    backgroundColor: '#007bff',
-    color: 'white',
-    borderBottomRightRadius: '4px'
-  },
-  botMessage: {
-    backgroundColor: 'white',
-    color: '#333',
-    border: '1px solid #e0e0e0',
-    borderBottomLeftRadius: '4px'
-  },
-  typing: {
-    animation: 'blink 1.4s infinite',
-    fontSize: '20px',
-    letterSpacing: '2px'
-  },
-  inputContainer: {
-    display: 'flex',
-    gap: '8px',
-    padding: '20px',
-    borderTop: '2px solid #f0f0f0',
-    backgroundColor: 'white'
-  },
-  voiceBtn: {
-    padding: '12px 16px',
-    backgroundColor: '#007bff',
-    color: 'white',
-    border: 'none',
-    borderRadius: '8px',
-    fontSize: '18px',
-    cursor: 'pointer',
-    minWidth: '60px'
-  },
-  input: {
-    flex: 1,
-    padding: '12px',
-    border: '1px solid #ddd',
-    borderRadius: '8px',
-    fontSize: '15px',
-    resize: 'none',
-    fontFamily: 'inherit',
-    outline: 'none'
-  },
-  sendBtn: {
-    padding: '12px 20px',
-    backgroundColor: '#28a745',
-    color: 'white',
-    border: 'none',
-    borderRadius: '8px',
-    fontSize: '20px',
-    cursor: 'pointer'
-  }
-};
 
 export default ChatWindow;

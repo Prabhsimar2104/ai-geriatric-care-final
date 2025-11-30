@@ -1,17 +1,16 @@
 import cron from 'node-cron';
 import db from '../db.js';
-import { sendPushNotification } from '../controllers/notify.js';
 
 let cronJob = null;
 
 // Check reminders every minute
 export const startReminderScheduler = () => {
   if (cronJob) {
-    console.log('⚠️ Scheduler already running');
+    console.log('Scheduler already running');
     return;
   }
 
-  // Run every minute: "* * * * *" means every minute
+  // Run every minute
   cronJob = cron.schedule('* * * * *', async () => {
     try {
       await checkAndTriggerReminders();
@@ -20,7 +19,7 @@ export const startReminderScheduler = () => {
     }
   });
 
-  console.log('⏰ Reminder scheduler started - checking every minute');
+  console.log('Reminder scheduler started - checking every minute');
 };
 
 // Stop the scheduler
@@ -28,7 +27,7 @@ export const stopReminderScheduler = () => {
   if (cronJob) {
     cronJob.stop();
     cronJob = null;
-    console.log('⏰ Reminder scheduler stopped');
+    console.log('Reminder scheduler stopped');
   }
 };
 
@@ -37,8 +36,6 @@ const checkAndTriggerReminders = async () => {
   try {
     const now = new Date();
     const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:00`;
-    const currentDay = now.getDate();
-    const currentMonth = now.getMonth() + 1;
 
     // Get all enabled reminders that match current time
     const [reminders] = await db.query(
@@ -50,7 +47,7 @@ const checkAndTriggerReminders = async () => {
     );
 
     if (reminders.length > 0) {
-      console.log(`🔔 Found ${reminders.length} reminder(s) to trigger at ${currentTime}`);
+      console.log(`Found ${reminders.length} reminder(s) to trigger at ${currentTime}`);
     }
 
     for (const reminder of reminders) {
@@ -62,20 +59,17 @@ const checkAndTriggerReminders = async () => {
           break;
         
         case 'weekly':
-          // Trigger once per week (on same day as created)
           const createdDay = new Date(reminder.created_at).getDay();
           const currentWeekDay = now.getDay();
           shouldTrigger = createdDay === currentWeekDay;
           break;
         
         case 'monthly':
-          // Trigger once per month (on same date as created)
           const createdDate = new Date(reminder.created_at).getDate();
-          shouldTrigger = createdDate === currentDay;
+          shouldTrigger = createdDate === now.getDate();
           break;
         
         case 'none':
-          // One-time reminder - check if it hasn't been triggered today
           const lastTriggered = await getLastTriggeredDate(reminder.id);
           const today = now.toDateString();
           shouldTrigger = lastTriggered !== today;
@@ -94,33 +88,37 @@ const checkAndTriggerReminders = async () => {
   }
 };
 
-// Trigger a reminder (log and send push notification)
+// Trigger a reminder
 const triggerReminder = async (reminder) => {
   try {
-    console.log(`🔔 TRIGGERING: "${reminder.title}" for user ${reminder.user_name} (${reminder.user_email})`);
+    console.log(`TRIGGERING: "${reminder.title}" for user ${reminder.user_name}`);
     
     // Store the trigger event
     await storeReminderEvent(reminder);
     
-    // Send push notification
-    await sendPushNotification(reminder.user_id, {
-      title: '🔔 Reminder: ' + reminder.title,
-      body: reminder.notes || 'Time for your reminder!',
-      icon: '/icon-192x192.png',
-      badge: '/badge-72x72.png',
-      tag: 'reminder-' + reminder.id,
-      data: {
-        reminderId: reminder.id,
-        url: '/reminders'
-      }
-    });
+    // Try to send push notification (don't fail if it doesn't work)
+    try {
+      const { sendPushNotification } = await import('../controllers/notify.js');
+      await sendPushNotification(reminder.user_id, {
+        title: 'Reminder: ' + reminder.title,
+        body: reminder.notes || 'Time for your reminder!',
+        icon: '/vite.svg',
+        tag: 'reminder-' + reminder.id,
+        data: {
+          reminderId: reminder.id,
+          url: '/reminders'
+        }
+      });
+    } catch (pushError) {
+      console.log('Push notification skipped:', pushError.message);
+    }
     
   } catch (error) {
     console.error('Error triggering reminder:', error);
   }
 };
 
-// Store reminder event to prevent duplicate triggers
+// Store reminder event
 const storeReminderEvent = async (reminder) => {
   try {
     await db.query(
@@ -145,7 +143,7 @@ const storeReminderEvent = async (reminder) => {
   }
 };
 
-// Get last triggered date for a reminder
+// Get last triggered date
 const getLastTriggeredDate = async (reminderId) => {
   try {
     const [events] = await db.query(

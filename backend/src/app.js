@@ -89,11 +89,11 @@ app.get('/api/health', async (req, res) => {
 /* ---------------------- 📡 API ROUTES ----------------------------------- */
 
 app.use('/api/auth', authRoutes);
-app.use('/api/reminders', reminderRoutes);
+app.use('/api/reminders', reminderRoutes); // ✅ This should work now
 app.use('/api/notify', notifyRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/emergency-contacts', emergencyContactRoutes);
-app.use('/api/notify', fallAlertRoutes); // Fall alert routes under /api/notify
+app.use('/api/fall-alerts', fallAlertRoutes); // ✅ Changed from /api/notify to /api/fall-alerts
 
 /* ---------------------- 🏠 HOME ROUTE ----------------------------------- */
 

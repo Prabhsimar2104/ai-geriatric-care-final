@@ -1,6 +1,7 @@
 // frontend/src/pages/FallAlerts.jsx
 import { useState, useEffect } from 'react';
-import { AlertTriangle, CheckCircle, Clock, User, Calendar, Image as ImageIcon } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Clock, User, Calendar, Image as ImageIcon, X, Zap } from 'lucide-react';
+import Layout from '../components/Layout';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
@@ -23,7 +24,7 @@ export default function FallAlerts() {
     try {
       const token = localStorage.getItem('token');
       const acknowledgedParam = filter === 'all' ? '' : `?acknowledged=${filter === 'acknowledged'}`;
-      
+
       const response = await fetch(`${API_URL}/api/notify/fall-alerts${acknowledgedParam}`, {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -44,7 +45,7 @@ export default function FallAlerts() {
   const acknowledgeAlert = async (alertId) => {
     try {
       const token = localStorage.getItem('token');
-      
+
       const response = await fetch(`${API_URL}/api/notify/fall-alerts/${alertId}/acknowledge`, {
         method: 'PUT',
         headers: {
@@ -73,13 +74,13 @@ export default function FallAlerts() {
     if (diffMinutes < 1) return 'Just now';
     if (diffMinutes < 60) return `${diffMinutes} minute${diffMinutes > 1 ? 's' : ''} ago`;
     if (diffMinutes < 1440) return `${Math.floor(diffMinutes / 60)} hour${Math.floor(diffMinutes / 60) > 1 ? 's' : ''} ago`;
-    
+
     return date.toLocaleString();
   };
 
   const getAlertSeverity = (timestamp, acknowledged) => {
     if (acknowledged) return 'resolved';
-    
+
     const diffMinutes = Math.floor((new Date() - new Date(timestamp)) / 60000);
     if (diffMinutes < 5) return 'critical';
     if (diffMinutes < 15) return 'high';
@@ -91,228 +92,303 @@ export default function FallAlerts() {
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading fall alerts...</p>
+          <p className="text-slate-400">Loading fall alerts...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-            <AlertTriangle className="text-red-600" size={32} />
-            Fall Detection Alerts
-          </h1>
-          <p className="text-gray-600 mt-2">Monitor and respond to fall detection events</p>
-        </div>
+    <Layout title="Fall Alerts">
+      <div className="animate-fade-in">
+        <div className="max-w-7xl mx-auto">
+          {/* Header */}
+          <div className="mb-8">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="p-4 bg-danger-light rounded-2xl relative">
+                <AlertTriangle className="text-danger" size={36} />
+                <div className="absolute inset-0 bg-danger/20 rounded-2xl blur-xl"></div>
+              </div>
+              <div>
+                <h1 className="text-4xl font-bold text-white mb-2">
+                  Fall Detection Alerts
+                </h1>
+                <p className="text-slate-400">Real-time monitoring and emergency response</p>
+              </div>
+            </div>
+          </div>
 
-        {/* Filter Tabs */}
-        <div className="bg-white rounded-lg shadow-sm mb-6">
-          <div className="flex border-b">
+          {/* Filter Chips */}
+          <div className="mb-8 flex flex-wrap gap-3">
             <button
               onClick={() => setFilter('unacknowledged')}
-              className={`px-6 py-3 font-medium transition-colors ${
-                filter === 'unacknowledged'
-                  ? 'border-b-2 border-red-600 text-red-600'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
+              className={`px-6 py-3 rounded-xl font-semibold transition-all ${filter === 'unacknowledged'
+                  ? 'bg-danger text-white shadow-lg shadow-danger/30 scale-105'
+                  : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700'
+                }`}
             >
-              Unacknowledged ({alerts.filter(a => !a.acknowledged).length})
+              🚨 Unacknowledged ({alerts.filter(a => !a.acknowledged).length})
             </button>
             <button
               onClick={() => setFilter('acknowledged')}
-              className={`px-6 py-3 font-medium transition-colors ${
-                filter === 'acknowledged'
-                  ? 'border-b-2 border-green-600 text-green-600'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
+              className={`px-6 py-3 rounded-xl font-semibold transition-all ${filter === 'acknowledged'
+                  ? 'bg-success text-white shadow-lg shadow-success/30 scale-105'
+                  : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700'
+                }`}
             >
-              Acknowledged ({alerts.filter(a => a.acknowledged).length})
+              ✅ Acknowledged ({alerts.filter(a => a.acknowledged).length})
             </button>
             <button
               onClick={() => setFilter('all')}
-              className={`px-6 py-3 font-medium transition-colors ${
-                filter === 'all'
-                  ? 'border-b-2 border-blue-600 text-blue-600'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
+              className={`px-6 py-3 rounded-xl font-semibold transition-all ${filter === 'all'
+                  ? 'bg-primary text-white shadow-lg shadow-primary/30 scale-105'
+                  : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700'
+                }`}
             >
-              All Alerts ({alerts.length})
+              📋 All Alerts ({alerts.length})
             </button>
           </div>
-        </div>
 
-        {/* Alerts List */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-            <p className="text-red-800">Error: {error}</p>
-          </div>
-        )}
+          {/* Error Message */}
+          {error && (
+            <div className="bg-danger-light border-2 border-danger/40 rounded-xl p-4 mb-6 flex items-center gap-3">
+              <AlertTriangle className="text-danger" size={24} />
+              <p className="text-danger font-semibold">Error: {error}</p>
+            </div>
+          )}
 
-        {alerts.length === 0 ? (
-          <div className="bg-white rounded-lg shadow-sm p-12 text-center">
-            <CheckCircle className="mx-auto text-green-500 mb-4" size={48} />
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">No Fall Alerts</h3>
-            <p className="text-gray-600">
-              {filter === 'unacknowledged' 
-                ? 'All fall alerts have been acknowledged.'
-                : 'There are no fall alerts to display.'}
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {alerts.map((alert) => {
-              const severity = getAlertSeverity(alert.timestamp, alert.acknowledged);
-              const severityColors = {
-                critical: 'border-red-500 bg-red-50',
-                high: 'border-orange-500 bg-orange-50',
-                medium: 'border-yellow-500 bg-yellow-50',
-                resolved: 'border-green-500 bg-green-50'
-              };
+          {/* Alerts List */}
+          {alerts.length === 0 ? (
+            <div className="card text-center py-20 border-dashed border-2 border-slate-700 bg-slate-800/30">
+              <CheckCircle className="mx-auto text-success mb-6 opacity-80" size={64} />
+              <h3 className="text-2xl font-bold text-white mb-3">No Fall Alerts</h3>
+              <p className="text-slate-400 text-lg">
+                {filter === 'unacknowledged'
+                  ? 'All fall alerts have been acknowledged. Great work!'
+                  : 'There are no fall alerts to display.'}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-5">
+              {alerts.map((alert) => {
+                const severity = getAlertSeverity(alert.timestamp, alert.acknowledged);
 
-              return (
-                <div
-                  key={alert.id}
-                  className={`bg-white rounded-lg shadow-sm border-l-4 p-6 ${severityColors[severity]} hover:shadow-md transition-shadow cursor-pointer`}
-                  onClick={() => setSelectedAlert(alert)}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      {/* Alert Header */}
-                      <div className="flex items-center gap-3 mb-3">
-                        <AlertTriangle 
-                          className={alert.acknowledged ? 'text-green-600' : 'text-red-600'} 
-                          size={24} 
-                        />
-                        <h3 className="text-lg font-semibold text-gray-900">
-                          Fall Detected - {alert.user_name || 'Unknown User'}
-                        </h3>
-                        {!alert.acknowledged && (
-                          <span className="px-3 py-1 bg-red-100 text-red-800 text-xs font-medium rounded-full animate-pulse">
-                            URGENT
-                          </span>
+                // Neon glow styles based on severity
+                const glowStyles = {
+                  critical: {
+                    border: '3px solid #ef4444',
+                    boxShadow: '0 0 30px rgba(239, 68, 68, 0.5), inset 0 0 20px rgba(239, 68, 68, 0.1)',
+                    background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(220, 38, 38, 0.05) 100%)'
+                  },
+                  high: {
+                    border: '2px solid #f59e0b',
+                    boxShadow: '0 0 20px rgba(245, 158, 11, 0.3)',
+                    background: 'rgba(245, 158, 11, 0.05)'
+                  },
+                  medium: {
+                    border: '2px solid #0ea5e9',
+                    boxShadow: '0 0 15px rgba(14, 165, 233, 0.2)',
+                    background: 'rgba(14, 165, 233, 0.05)'
+                  },
+                  resolved: {
+                    border: '2px solid #22c55e',
+                    boxShadow: '0 0 15px rgba(34, 197, 94, 0.2)',
+                    background: 'rgba(34, 197, 94, 0.05)',
+                    opacity: 0.7
+                  }
+                };
+
+                return (
+                  <div
+                    key={alert.id}
+                    className="rounded-2xl p-6 cursor-pointer transition-all hover:scale-[1.02] relative overflow-hidden"
+                    style={glowStyles[severity]}
+                    onClick={() => setSelectedAlert(alert)}
+                  >
+                    {/* Animated pulse for critical alerts */}
+                    {severity === 'critical' && (
+                      <div className="absolute inset-0 animate-pulse bg-danger/5 pointer-events-none"></div>
+                    )}
+
+                    <div className="flex items-start gap-6 relative z-10">
+                      {/* Large Icon on Left */}
+                      <div className={`p-5 rounded-2xl flex-shrink-0 ${alert.acknowledged ? 'bg-success/20' : 'bg-danger/20'
+                        }`}>
+                        {alert.acknowledged ? (
+                          <CheckCircle className="text-success" size={48} />
+                        ) : (
+                          <AlertTriangle className="text-danger animate-pulse" size={48} />
                         )}
                       </div>
 
-                      {/* Alert Details */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                        <div className="flex items-center gap-2 text-gray-600">
-                          <Clock size={16} />
-                          <span>{formatTimestamp(alert.timestamp)}</span>
+                      {/* Details in Middle */}
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-3">
+                          <h3 className="text-2xl font-bold text-white">
+                            Fall Detected - {alert.user_name || 'Unknown User'}
+                          </h3>
+                          {!alert.acknowledged && (
+                            <span className="px-3 py-1 bg-danger text-white text-xs font-bold rounded-full animate-pulse flex items-center gap-1">
+                              <Zap size={12} />
+                              URGENT
+                            </span>
+                          )}
                         </div>
-                        <div className="flex items-center gap-2 text-gray-600">
-                          <User size={16} />
-                          <span>{alert.user_email || 'No email'}</span>
+
+                        {/* Alert Details Grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                          <div className="flex items-center gap-2 text-slate-300">
+                            <Clock size={18} className="text-primary" />
+                            <span className="font-medium">{formatTimestamp(alert.timestamp)}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-slate-300">
+                            <User size={18} className="text-primary" />
+                            <span className="font-medium">{alert.user_email || 'No email'}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-slate-300">
+                            <Calendar size={18} className="text-primary" />
+                            <span className="font-medium">{new Date(alert.timestamp).toLocaleString()}</span>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2 text-gray-600">
-                          <Calendar size={16} />
-                          <span>{new Date(alert.timestamp).toLocaleString()}</span>
-                        </div>
+
+                        {/* Confidence Score */}
+                        {alert.confidence && (
+                          <div className="mb-4 max-w-md">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm font-bold text-slate-300">DETECTION CONFIDENCE</span>
+                              <span className="text-lg font-bold text-primary">{(alert.confidence * 100).toFixed(1)}%</span>
+                            </div>
+                            <div className="w-full bg-slate-700 rounded-full h-2 overflow-hidden">
+                              <div
+                                className="bg-gradient-to-r from-primary to-purple-500 h-full rounded-full transition-all duration-1000 ease-out"
+                                style={{ width: `${alert.confidence * 100}%` }}
+                              ></div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Acknowledged Info */}
+                        {alert.acknowledged && (
+                          <div className="flex items-center gap-2 text-success bg-success-light px-4 py-2 rounded-lg inline-flex">
+                            <CheckCircle size={18} />
+                            <span className="text-sm font-semibold">
+                              Acknowledged by {alert.acknowledged_by_name} at {new Date(alert.acknowledged_at).toLocaleString()}
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Image Thumbnail */}
+                        {alert.image_url && (
+                          <div className="mt-4 flex items-center gap-2 text-primary hover:text-primary-hover transition-colors font-semibold">
+                            <ImageIcon size={18} />
+                            <span className="text-sm">Click to view fall detection image →</span>
+                          </div>
+                        )}
                       </div>
 
-                      {/* Confidence Score */}
-                      {alert.confidence && (
-                        <div className="mt-3">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-sm text-gray-600">Detection Confidence:</span>
-                            <span className="text-sm font-medium">{(alert.confidence * 100).toFixed(1)}%</span>
-                          </div>
-                          <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div 
-                              className="bg-blue-600 h-2 rounded-full transition-all"
-                              style={{ width: `${alert.confidence * 100}%` }}
-                            ></div>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Acknowledged Info */}
-                      {alert.acknowledged && (
-                        <div className="mt-3 flex items-center gap-2 text-green-700 bg-green-100 px-3 py-2 rounded-md">
-                          <CheckCircle size={16} />
-                          <span className="text-sm">
-                            Acknowledged by {alert.acknowledged_by_name} at {new Date(alert.acknowledged_at).toLocaleString()}
-                          </span>
-                        </div>
+                      {/* Action Button on Right */}
+                      {!alert.acknowledged && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            acknowledgeAlert(alert.id);
+                          }}
+                          className="btn btn-success px-6 py-3 text-base font-bold shadow-lg shadow-success/30 hover:scale-105"
+                        >
+                          ✓ Acknowledge
+                        </button>
                       )}
                     </div>
-
-                    {/* Action Button */}
-                    {!alert.acknowledged && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          acknowledgeAlert(alert.id);
-                        }}
-                        className="ml-4 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
-                      >
-                        Acknowledge
-                      </button>
-                    )}
                   </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
-                  {/* Image Preview */}
-                  {alert.image_url && (
-                    <div className="mt-4 flex items-center gap-2 text-blue-600 hover:text-blue-700">
-                      <ImageIcon size={16} />
-                      <span className="text-sm font-medium">View fall detection image →</span>
-                    </div>
-                  )}
+        {/* Alert Detail Modal with Image */}
+        {selectedAlert && (
+          <div
+            className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fade-in"
+            onClick={() => setSelectedAlert(null)}
+          >
+            <div
+              className="glass-panel max-w-4xl w-full p-8 shadow-2xl border-2 border-white/20 relative"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={() => setSelectedAlert(null)}
+                className="absolute top-4 right-4 text-slate-400 hover:text-white bg-slate-800 p-2 rounded-full transition-colors"
+              >
+                <X size={24} />
+              </button>
+
+              <h2 className="text-3xl font-bold text-white mb-6">Fall Alert Details</h2>
+
+              <div className="grid grid-cols-2 gap-6 mb-8">
+                <div className="p-5 bg-slate-800/50 rounded-xl">
+                  <p className="text-xs text-slate-500 uppercase font-bold mb-2">User</p>
+                  <p className="text-xl font-bold text-white">{selectedAlert.user_name}</p>
+                  <p className="text-sm text-slate-400 mt-1">{selectedAlert.user_email}</p>
                 </div>
-              );
-            })}
+                <div className="p-5 bg-slate-800/50 rounded-xl">
+                  <p className="text-xs text-slate-500 uppercase font-bold mb-2">Time</p>
+                  <p className="text-lg font-semibold text-white">{new Date(selectedAlert.timestamp).toLocaleString()}</p>
+                </div>
+                <div className="p-5 bg-slate-800/50 rounded-xl">
+                  <p className="text-xs text-slate-500 uppercase font-bold mb-2">Status</p>
+                  <span className={`badge text-base px-4 py-2 ${selectedAlert.acknowledged ? 'badge-success' : 'badge-danger'}`}>
+                    {selectedAlert.acknowledged ? '✓ Acknowledged' : '⚠ Pending Action'}
+                  </span>
+                </div>
+                <div className="p-5 bg-slate-800/50 rounded-xl">
+                  <p className="text-xs text-slate-500 uppercase font-bold mb-2">Confidence</p>
+                  <p className="text-xl font-bold text-primary">
+                    {selectedAlert.confidence ? `${(selectedAlert.confidence * 100).toFixed(1)}%` : 'N/A'}
+                  </p>
+                </div>
+              </div>
+
+              {selectedAlert.acknowledged && (
+                <div className="p-5 bg-success-light/10 border-2 border-success/30 rounded-xl mb-8">
+                  <p className="text-success font-semibold">
+                    <strong>Acknowledged By:</strong> {selectedAlert.acknowledged_by_name} <br />
+                    <strong>At:</strong> {new Date(selectedAlert.acknowledged_at).toLocaleString()}
+                  </p>
+                </div>
+              )}
+
+              {selectedAlert.image_url && (
+                <div className="mb-8">
+                  <p className="text-sm font-bold text-slate-400 mb-4 uppercase">Detection Image</p>
+                  <img
+                    src={selectedAlert.image_url}
+                    alt="Fall detection"
+                    className="w-full rounded-2xl border-2 border-white/10 shadow-2xl"
+                  />
+                </div>
+              )}
+
+              <div className="flex gap-4 justify-end pt-6 border-t-2 border-white/10">
+                <button
+                  onClick={() => setSelectedAlert(null)}
+                  className="btn btn-ghost px-6 py-3"
+                >
+                  Close
+                </button>
+                {!selectedAlert.acknowledged && (
+                  <button
+                    onClick={() => acknowledgeAlert(selectedAlert.id)}
+                    className="btn btn-success px-6 py-3 shadow-lg shadow-success/30"
+                  >
+                    ✓ Acknowledge Alert
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         )}
       </div>
-
-      {/* Alert Detail Modal */}
-      {selectedAlert && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" onClick={() => setSelectedAlert(null)}>
-          <div className="bg-white rounded-lg max-w-2xl w-full p-6" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-2xl font-bold mb-4">Fall Alert Details</h2>
-            
-            <div className="space-y-3 mb-6">
-              <p><strong>User:</strong> {selectedAlert.user_name} ({selectedAlert.user_email})</p>
-              <p><strong>Time:</strong> {new Date(selectedAlert.timestamp).toLocaleString()}</p>
-              <p><strong>Confidence:</strong> {selectedAlert.confidence ? `${(selectedAlert.confidence * 100).toFixed(1)}%` : 'N/A'}</p>
-              <p><strong>Status:</strong> {selectedAlert.acknowledged ? 'Acknowledged' : 'Pending'}</p>
-              
-              {selectedAlert.acknowledged && (
-                <>
-                  <p><strong>Acknowledged By:</strong> {selectedAlert.acknowledged_by_name}</p>
-                  <p><strong>Acknowledged At:</strong> {new Date(selectedAlert.acknowledged_at).toLocaleString()}</p>
-                </>
-              )}
-            </div>
-
-            {selectedAlert.image_url && (
-              <div className="mb-6">
-                <img src={selectedAlert.image_url} alt="Fall detection" className="w-full rounded-lg" />
-              </div>
-            )}
-
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={() => setSelectedAlert(null)}
-                className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"
-              >
-                Close
-              </button>
-              {!selectedAlert.acknowledged && (
-                <button
-                  onClick={() => acknowledgeAlert(selectedAlert.id)}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-                >
-                  Acknowledge Alert
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+    </Layout>
   );
 }
