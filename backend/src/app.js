@@ -38,14 +38,28 @@ if (process.env.SENTRY_DSN) {
 
 /* ---------------------- 🌐 EXPRESS MIDDLEWARE ---------------------------- */
 
+// Simplify CORS - let vercel.json handle headers
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', 'https://ai-geriatric-care-final-ateo.vercel.app');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-API-KEY');
+  
+  // Handle preflight
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  
+  next();
+});
+
 app.use(cors({
   origin: 'https://ai-geriatric-care-final-ateo.vercel.app',
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-API-KEY']
+  credentials: true
 }));
 
-app.options('*', cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true}));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
