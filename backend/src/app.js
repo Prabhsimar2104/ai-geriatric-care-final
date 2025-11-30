@@ -39,15 +39,13 @@ if (process.env.SENTRY_DSN) {
 /* ---------------------- 🌐 EXPRESS MIDDLEWARE ---------------------------- */
 
 app.use(cors({
-  origin: [
-    'http://localhost:3000',
-    'http://localhost:5173',
-    'https://ai-geriatric-care-final-ateo.vercel.app'  // ✅ Correct frontend URL, no slash
-  ],
+  origin: 'https://ai-geriatric-care-final-ateo.vercel.app',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-API-KEY']
 }));
+
+app.options('*', cors());
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
