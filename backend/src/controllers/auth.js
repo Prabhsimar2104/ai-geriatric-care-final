@@ -1,152 +1,165 @@
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-import db from '../db.js';
+import express from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import * as Sentry from '@sentry/node';
+import db from './db.js';
+import { startReminderScheduler } from './utils/scheduler.js';
 
-// Signup - Create new user
-export const signup = async (req, res) => {
+// Import routes
+import authRoutes from './routes/authRoutes.js';
+import reminderRoutes from './routes/reminderRoutes.js';
+import notifyRoutes from './routes/notifyRoutes.js';
+import chatRoutes from './routes/chatRoutes.js';
+import emergencyContactRoutes from './routes/emergencyContactRoutes.js';
+import fallAlertRoutes from './routes/fallAlertRoutes.js';
+
+// New imports
+import { getHealthStatus } from './utils/healthCheck.js';
+import { performanceMonitoring } from './middleware/performance.js';
+
+dotenv.config();
+
+const app = express();
+const PORT = process.env.PORT || 4000;
+
+/* ---------------------- 🔥 SENTRY INITIALIZATION 🔥 ---------------------- */
+
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV || 'development',
+    tracesSampleRate: 1.0,
+  });
+
+  app.use(Sentry.Handlers.requestHandler());
+  app.use(Sentry.Handlers.tracingHandler());
+}
+
+/* ---------------------- 🌐 EXPRESS MIDDLEWARE ---------------------------- */
+
+// CRITICAL: CORS must come BEFORE body parsers
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'https://ai-geriatric-care-final-ateo.vercel.app'
+];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-API-KEY'],
+  exposedHeaders: ['Content-Length', 'X-Request-Id'],
+  maxAge: 86400 // 24 hours
+}));
+
+// Handle preflight requests explicitly
+app.options('*', cors());
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+/* ---------------------- 🚀 PERFORMANCE MONITORING ------------------------ */
+
+if (performanceMonitoring) {
+  app.use(performanceMonitoring);
+}
+
+/* ---------------------- 🩺 HEALTH CHECK ROUTE ---------------------------- */
+
+app.get('/api/health', async (req, res) => {
   try {
-    const { name, email, password, role, phone, preferred_language } = req.body;
-
-    // Validation
-    if (!name || !email || !password) {
-      return res.status(400).json({ 
-        error: 'Name, email, and password are required' 
+    const health = getHealthStatus ? await getHealthStatus() : null;
+    
+    if (health) {
+      const statusCode = health.status === 'healthy' ? 200 : 503;
+      res.status(statusCode).json(health);
+    } else {
+      const [result] = await db.query('SELECT 1 as status');
+      res.json({ 
+        status: 'OK', 
+        message: 'Server running',
+        database: result[0].status === 1 ? 'Connected' : 'Disconnected',
+        timestamp: new Date().toISOString()
       });
     }
-
-    // Check if user already exists
-    const [existingUser] = await db.query(
-      'SELECT id FROM users WHERE email = ?',
-      [email]
-    );
-
-    if (existingUser.length > 0) {
-      return res.status(400).json({ 
-        error: 'User with this email already exists' 
-      });
-    }
-
-    // Hash password
-    const salt = await bcrypt.genSalt(10);
-    const password_hash = await bcrypt.hash(password, salt);
-
-    // Insert user into database
-    const [result] = await db.query(
-      `INSERT INTO users (name, email, password_hash, role, phone, preferred_language) 
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [
-        name, 
-        email, 
-        password_hash, 
-        role || 'elderly', 
-        phone || null, 
-        preferred_language || 'en'
-      ]
-    );
-
-    res.status(201).json({
-      message: 'User created successfully',
-      userId: result.insertId,
-      email: email,
-      name: name
-    });
-
   } catch (error) {
-    console.error('Signup error:', error);
-    res.status(500).json({ 
-      error: 'Failed to create user',
-      message: error.message 
+    res.status(503).json({
+      status: 'unhealthy',
+      error: error.message,
+      timestamp: new Date().toISOString()
     });
   }
-};
+});
 
-// Login - Authenticate user
-export const login = async (req, res) => {
-  try {
-    const { email, password } = req.body;
+/* ---------------------- 📡 API ROUTES ----------------------------------- */
 
-    // Validation
-    if (!email || !password) {
-      return res.status(400).json({ 
-        error: 'Email and password are required' 
-      });
+app.use('/api/auth', authRoutes);
+app.use('/api/reminders', reminderRoutes);
+app.use('/api/notify', notifyRoutes);
+app.use('/api/chat', chatRoutes);
+app.use('/api/emergency-contacts', emergencyContactRoutes);
+app.use('/api/fall-alerts', fallAlertRoutes);
+
+/* ---------------------- 🏠 HOME ROUTE ----------------------------------- */
+
+app.get('/', (req, res) => {
+  res.json({
+    message: 'AI Geriatric Care API',
+    version: '1.0.0',
+    status: 'Running',
+    endpoints: {
+      health: '/api/health',
+      fallAlert: '/api/notify/fall-alert (POST with X-API-KEY)',
+      fallAlerts: '/api/notify/fall-alerts (GET with JWT)'
     }
+  });
+});
 
-    // Find user by email
-    const [users] = await db.query(
-      'SELECT * FROM users WHERE email = ?',
-      [email]
-    );
+/* ---------------------- ❌ 404 HANDLER ---------------------------------- */
 
-    if (users.length === 0) {
-      return res.status(401).json({ 
-        error: 'Invalid email or password' 
-      });
-    }
+app.use((req, res) => {
+  res.status(404).json({ error: 'Route not found' });
+});
 
-    const user = users[0];
+/* ---------------------- 🔥 SENTRY ERROR HANDLER -------------------------- */
 
-    // Check password
-    const isPasswordValid = await bcrypt.compare(password, user.password_hash);
+if (process.env.SENTRY_DSN) {
+  app.use(Sentry.Handlers.errorHandler());
+}
 
-    if (!isPasswordValid) {
-      return res.status(401).json({ 
-        error: 'Invalid email or password' 
-      });
-    }
+/* ---------------------- ⚠️ CUSTOM ERROR HANDLER -------------------------- */
 
-    // Generate JWT token
-    const token = jwt.sign(
-      { 
-        id: user.id, 
-        email: user.email, 
-        role: user.role 
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: '7d' }
-    );
+app.use((err, req, res, next) => {
+  console.error('⚠️ ERROR:', err.stack);
 
-    res.json({
-      message: 'Login successful',
-      token: token,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        phone: user.phone,
-        preferred_language: user.preferred_language
-      }
-    });
+  res.status(500).json({
+    error: 'Something went wrong!',
+    message: err.message,
+    sentryId: res.sentry
+  });
+});
 
-  } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ 
-      error: 'Login failed',
-      message: error.message 
-    });
-  }
-};
+/* ---------------------- ⏰ SCHEDULER + SERVER ---------------------------- */
 
-// Get current user info
-export const getMe = async (req, res) => {
-  try {
-    const [users] = await db.query(
-      'SELECT id, name, email, role, phone, preferred_language, created_at FROM users WHERE id = ?',
-      [req.user.id]
-    );
+startReminderScheduler();
 
-    if (users.length === 0) {
-      return res.status(404).json({ error: 'User not found' });
-    }
+// Export for Vercel serverless
+export default app;
 
-    res.json({ user: users[0] });
-
-  } catch (error) {
-    console.error('Get user error:', error);
-    res.status(500).json({ 
-      error: 'Failed to get user info',
-      message: error.message 
-    });
-  }
-};
+// Only listen if not in Vercel environment
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => {
+    console.log(`🚀 Server running on http://localhost:${PORT}`);
+    console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
+  });
+}
