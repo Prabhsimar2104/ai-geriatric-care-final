@@ -185,7 +185,7 @@ function ChatWindow() {
             <h3 className="text-xl font-bold text-white flex items-center gap-2">
               💬 Chat Assistant
             </h3>
-            <p className="text-xs text-slate-400 mt-1">Powered by Google Gemini AI 🤖</p>
+            <p className="text-xs text-slate-400 mt-1">Powered by HuggingFace AI 🤗</p>
           </div>
           <div className="flex gap-3">
             <select
