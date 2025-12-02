@@ -15,7 +15,7 @@ const Chat = () => {
               <Bot size={40} className="text-white" />
             </div>
             <h2 className="text-2xl font-bold text-white mb-2">AI Care Assistant</h2>
-            <p className="text-slate-400 text-sm mb-4">Powered by HuggingFace AI 🤗</p>
+            <p className="text-slate-400 text-sm mb-4">Powered by Google Gemini AI</p>
             <div className="flex items-center justify-center gap-2 text-xs text-primary">
               <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
               <span className="font-semibold">Online & Ready</span>
